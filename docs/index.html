@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JavaChess</title>
+<style>
+  :root { --bg:#1e1f22; --panel:#26282c; --ink:#e7e3d8; --muted:#a6a097; --accent:#b58863; --light:#f0d9b5; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+  header { text-align:center; padding:40px 20px 10px; }
+  h1 { margin:0; font-size:2.4rem; letter-spacing:.5px; }
+  h1 .pawn { color:var(--accent); }
+  .tagline { color:var(--muted); margin-top:8px; max-width:640px; margin-left:auto; margin-right:auto; }
+  main { max-width:1100px; margin:0 auto; padding:20px; }
+  section { background:var(--panel); border-radius:10px; padding:24px; margin:22px 0; }
+  h2 { margin-top:0; font-size:1.3rem; border-bottom:1px solid #3a3d42; padding-bottom:8px; }
+  .play-wrap { text-align:center; }
+  #launch { background:var(--accent); color:#1e1f22; border:0; border-radius:8px;
+            font-size:1.1rem; font-weight:700; padding:14px 28px; cursor:pointer; }
+  #launch:hover { filter:brightness(1.08); }
+  #note { color:var(--muted); font-size:.95rem; margin-top:12px; min-height:1.4em; }
+  #stage { margin-top:18px; display:flex; justify-content:center; }
+  #game { width:900px; height:770px; max-width:100%; background:#000; border-radius:8px; }
+  #diag { display:none; text-align:left; margin:14px auto 0; max-width:1024px; max-height:220px;
+          overflow:auto; background:#16171a; color:#cfcabd; border-radius:8px;
+          font:12px/1.5 ui-monospace,Consolas,Menlo,monospace; padding:12px; white-space:pre-wrap; }
+  .demo { text-align:center; }
+  .demo img { width:100%; max-width:100%; border-radius:8px; }
+  ul { padding-left:20px; } li { margin:6px 0; }
+  code, pre { background:#16171a; border-radius:6px; }
+  code { padding:2px 6px; } pre { padding:14px; overflow:auto; }
+  a { color:var(--accent); }
+  footer { text-align:center; color:var(--muted); padding:24px; font-size:.9rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="pawn">&#9817;</span> JavaChess</h1>
+  <p class="tagline">A desktop chess game in Java with a built-in engine, running in your browser. Play against the computer at three levels, or two players on one board.</p>
+</header>
+
+<main>
+  <section class="play-wrap">
+    <h2>Play in your browser</h2>
+    <button id="launch">Launch the game</button>
+    <p id="note">Runs the actual Java app in your browser via CheerpJ (WebAssembly). The first launch downloads the runtime, so give it a moment. Best on a desktop browser.</p>
+    <div id="stage"><div id="game"></div></div>
+    <pre id="diag"></pre>
+  </section>
+
+  <section class="demo">
+    <h2>Demo</h2>
+    <img src="demo.gif" alt="JavaChess playing a short game">
+  </section>
+
+  <section>
+    <h2>Features</h2>
+    <ul>
+      <li>Negamax search with alpha-beta and principal variation search, a transposition table, null-move pruning, late-move reductions, killer and history move ordering, check extensions, and a quiescence search.</li>
+      <li>Evaluation with tapered piece-square tables, mobility, pawn structure, king safety, and an endgame term that drives a lone king to the edge.</li>
+      <li>Full rules: castling, en passant, promotion, the 50-move rule, threefold repetition, and insufficient-material draws.</li>
+      <li>Opening book, UCI support for chess GUIs like Arena and CuteChess, and a move list in algebraic notation with undo and redo.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Run it locally</h2>
+    <p>You need Java 17 or newer. From the project's <code>src</code> folder:</p>
+    <pre>javac *.java
+java ChessGUI</pre>
+    <p>Source and instructions are on <a href="https://github.com/Archie0099/JavaChess">GitHub</a>.</p>
+  </section>
+</main>
+
+<footer>Built in Java. Source on <a href="https://github.com/Archie0099/JavaChess">GitHub</a>.</footer>
+
+<script src="https://cjrtnc.leaningtech.com/3.0/cj3loader.js"></script>
+<script>
+  // The Java game starts on its own thread (main() returns immediately), so an
+  // error during the game's start-up never reaches the JavaScript below; it only
+  // prints to the browser console. Mirror the console onto the page so that, if
+  // the board does not appear, the reason is visible in a screenshot.
+  const diag = document.getElementById("diag");
+  const ring = [];
+  function record(line) {
+    ring.push(line);
+    if (ring.length > 80) ring.shift();
+  }
+  function reveal(line) {
+    record(line);
+    diag.style.display = "block";
+    diag.textContent += line + "\n";
+    diag.scrollTop = diag.scrollHeight;
+  }
+  const looksLikeError = /exception|error|caused by|\bat [A-Za-z]|fatal|cannot|failed/i;
+  const origLog = console.log.bind(console);
+  const origWarn = console.warn.bind(console);
+  const origErr = console.error.bind(console);
+  console.log = function (...a) { const s = a.join(" "); record("[log] " + s); if (looksLikeError.test(s)) reveal(s); origLog(...a); };
+  console.warn = function (...a) { reveal("[warn] " + a.join(" ")); origWarn(...a); };
+  console.error = function (...a) { reveal("[error] " + a.join(" ")); origErr(...a); };
+  window.addEventListener("error", e => reveal("[page error] " + (e.message || e.error)));
+  window.addEventListener("unhandledrejection", e => reveal("[promise] " + e.reason));
+
+  const launch = document.getElementById("launch");
+  const note = document.getElementById("note");
+  launch.addEventListener("click", async () => {
+    launch.disabled = true;
+    launch.textContent = "Loading...";
+    try {
+      note.textContent = "Step 1 of 4: starting the CheerpJ runtime...";
+      await cheerpjInit();
+
+      note.textContent = "Step 2 of 4: runtime ready, creating the display...";
+      const game = document.getElementById("game");
+      game.innerHTML = "";
+      cheerpjCreateDisplay(900, 770, game);
+
+      launch.style.display = "none";
+      note.textContent = "Step 3 of 4: downloading and starting the game (a few MB on first run, please wait)...";
+      // /app maps to the site origin; the page lives under /JavaChess/, so the jar
+      // is /app/JavaChess/<file>. The -v52 suffix forces a fresh download after a
+      // rebuild instead of the browser reusing an old cached jar.
+      await cheerpjRunJar("/app/JavaChess/JavaChess-b3.jar");
+
+      note.textContent = "Step 4 of 4: game started. The chessboard appears in the black area below, then a 'Choose mode' window opens on top. Give it a few seconds.";
+      setTimeout(() => {
+        reveal("--- diagnostic dump (last console lines) ---");
+        ring.forEach(reveal);
+        note.textContent = "If you can see the chessboard above, you are all set. If the area is still black, the messages below this box show what happened. Take a screenshot of them.";
+      }, 14000);
+    } catch (e) {
+      launch.disabled = false;
+      launch.textContent = "Launch the game";
+      note.textContent = "Could not start: " + e + ". Try reloading the page.";
+      reveal("[launch failed] " + e);
+    }
+  });
+</script>
+</body>
+</html>
