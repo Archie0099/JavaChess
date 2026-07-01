@@ -183,7 +183,9 @@ public class UCI {
         else if (movetime > 0)   alloc = Math.max(20, movetime - 20);
         else if (time > 0) {
             alloc = time / 30 + inc * 3 / 4;                      // simple allocator
-            alloc = Math.max(50, Math.min(alloc, time / 2));
+            // clamp: floor for responsiveness, but never more than half the clock.
+            // (min OUTSIDE max, so under ~100 ms the time/2 cap wins and we don't flag)
+            alloc = Math.min(Math.max(50, alloc), time / 2);
         }
         else if (depthSet)       alloc = Long.MAX_VALUE / 4;      // "go depth N": reach the depth, no time cap
         else                     alloc = 5_000;                   // bare "go" with no limits
@@ -204,7 +206,14 @@ public class UCI {
 
         engine.prepareForSearch();   // clear stop flag on the controller thread
         searchThread = new Thread(() -> {
-            String best = engine.searchUci(pos, histHashes, histCount, allocF, depthF);
+            String best = "0000";
+            try {
+                best = engine.searchUci(pos, histHashes, histCount, allocF, depthF);
+            } catch (Throwable t) {
+                // never die silently: a UCI "go" must always be answered with a
+                // bestmove, or the controlling GUI hangs forever waiting for one
+                System.out.println("info string search error: " + t);
+            }
             System.out.println("bestmove " + best);
             System.out.flush();
         }, "search");

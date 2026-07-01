@@ -885,10 +885,12 @@ public class ImprovedAI {
             int bHeavy = bMat - 330 * bBish - 320 * bKn;
             if (bMat == 0 && bPawns == 0
                     && hasMatingMaterial(wPawns, wBish, wKn, wHeavy, wBishopSquares()))
-                e += mopUp(B.kingSq[SearchBoard.WHITE], B.kingSq[SearchBoard.BLACK]);
+                e += mopUp(B.kingSq[SearchBoard.WHITE], B.kingSq[SearchBoard.BLACK],
+                           mateCorner(wHeavy, wBish, wKn, wBishopSquares()));
             if (wMat == 0 && wPawns == 0
                     && hasMatingMaterial(bPawns, bBish, bKn, bHeavy, bBishopSquares()))
-                e -= mopUp(B.kingSq[SearchBoard.BLACK], B.kingSq[SearchBoard.WHITE]);
+                e -= mopUp(B.kingSq[SearchBoard.BLACK], B.kingSq[SearchBoard.WHITE],
+                           mateCorner(bHeavy, bBish, bKn, bBishopSquares()));
         }
 
         e += (B.side == SearchBoard.WHITE) ? TEMPO_BONUS : -TEMPO_BONUS;
@@ -1021,12 +1023,36 @@ public class ImprovedAI {
         return m;
     }
 
-    /** Push the lone king to the edge, bring our king close. */
-    private int mopUp(int strongKing, int weakKing) {
+    /**
+     * Push the lone king to the edge and bring our king up.
+     * cornerColor: 0 = steer toward the light corners (a8/h1), 1 = the dark
+     * corners (a1/h8), -1 = any corner. K+B+N can only mate in a corner that
+     * matches the bishop's colour, so it MUST be driven to the right one — a
+     * corner-blind mop-up would shuffle into a 50-move draw in a won position.
+     */
+    private int mopUp(int strongKing, int weakKing, int cornerColor) {
         int wr = weakKing >> 3, wc = weakKing & 7;
         int edge = Math.min(Math.min(wr, 7 - wr), Math.min(wc, 7 - wc));
         int dist = Math.abs((strongKing >> 3) - wr) + Math.abs((strongKing & 7) - wc);
-        return 300 + (3 - edge) * 50 + (8 - dist) * 15;
+        int score = 300 + (3 - edge) * 50 + (8 - dist) * 15;
+        if (cornerColor >= 0) {
+            int toLight = Math.min(wr + wc, (7 - wr) + (7 - wc));   // dist to a8 / h1
+            int toDark  = Math.min((7 - wr) + wc, wr + (7 - wc));   // dist to a1 / h8
+            int cornerDist = (cornerColor == 0) ? toLight : toDark;
+            score += (14 - cornerDist) * 20;                        // reward the RIGHT corner
+        }
+        return score;
+    }
+
+    /**
+     * Which corner colour this mating material must mate in: 0 = light (a8/h1),
+     * 1 = dark (a1/h8), or -1 when a mate is possible in any corner (a heavy
+     * piece, or the two-bishop pair). Only K+B+N is corner-colour-locked.
+     */
+    private int mateCorner(int heavy, int bishops, int knights, long bishopColors) {
+        if (heavy == 0 && bishops == 1 && knights == 1)
+            return (bishopColors == 1) ? 0 : 1;   // bishopColors: 1 = light-squared only
+        return -1;
     }
 
     private boolean hasNonPawnMaterial(int side) {
