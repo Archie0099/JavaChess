@@ -121,9 +121,9 @@ java ChessGUI</pre>
       launch.style.display = "none";
       note.textContent = "Step 3 of 4: downloading and starting the game (a few MB on first run, please wait)...";
       // /app maps to the site origin; the page lives under /JavaChess/, so the jar
-      // is /app/JavaChess/<file>. The -v52 suffix forces a fresh download after a
-      // rebuild instead of the browser reusing an old cached jar.
-      await cheerpjRunJar("/app/JavaChess/JavaChess-b3.jar");
+      // is /app/JavaChess/<file>. The -bN suffix is bumped on every rebuild so the
+      // browser fetches the new jar instead of reusing an old cached one.
+      await cheerpjRunJar("/app/JavaChess/JavaChess-b4.jar");
 
       note.textContent = "Step 4 of 4: game started. The chessboard appears in the black area below, then a 'Choose mode' window opens on top. Give it a few seconds.";
       setTimeout(() => {
